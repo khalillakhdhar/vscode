@@ -706,6 +706,40 @@ suite('ExtHostLanguageFeatureCommands', function () {
 
 	});
 
+	test('"vscode.executeCompletionItemProvider" doesnot return `resolveCompletionItem` result #110182', async function () {
+
+		let resolveCount = 0;
+
+		disposables.push(extHost.registerCompletionItemProvider(nullExtensionDescription, defaultSelector, <vscode.CompletionItemProvider>{
+			provideCompletionItems(): any {
+				let a = new types.CompletionItem('item1');
+				let b = new types.CompletionItem('item2');
+				let c = new types.CompletionItem('item3');
+				let d = new types.CompletionItem('item4');
+				return new types.CompletionList([a, b, c, d], false);
+			},
+			resolveCompletionItem(item) {
+				item.insertText = item.label;
+				return item;
+			}
+		}, []));
+
+		await rpcProtocol.sync();
+
+		let list = await commands.executeCommand<vscode.CompletionList>(
+			'vscode.executeCompletionItemProvider',
+			model.uri,
+			new types.Position(0, 4),
+			undefined,
+			2 // maxItemsToResolve
+		);
+
+		assert.ok(list instanceof types.CompletionList);
+		assert.equal(resolveCount, 2);
+		assert.equal(list.items[0].insertText, list.items[0].label);
+		assert.equal(list.items[1].insertText, list.items[1].label);
+	});
+
 	test('"vscode.executeCompletionItemProvider" doesnot return a preselect field #53749', async function () {
 		disposables.push(extHost.registerCompletionItemProvider(nullExtensionDescription, defaultSelector, <vscode.CompletionItemProvider>{
 			provideCompletionItems(): any {
